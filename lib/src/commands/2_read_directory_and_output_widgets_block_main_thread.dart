@@ -11,8 +11,8 @@ import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:widgetbook_coverage_cli/src/error_handling/cli_exception.dart';
 
-class ReadDirectoryAndOutputWidgetsCommand extends Command<int> {
-  ReadDirectoryAndOutputWidgetsCommand({
+class ReadDirectoryAndOutputWidgetsBlockMainThreadCommand extends Command<int> {
+  ReadDirectoryAndOutputWidgetsBlockMainThreadCommand({
     required Logger logger,
   }) : _logger = logger;
 
@@ -21,7 +21,7 @@ class ReadDirectoryAndOutputWidgetsCommand extends Command<int> {
       'A command that returns all widgets from a folder, including those in subfolders.';
 
   @override
-  String get name => 'read_directory_and_output_widgets';
+  String get name => 'read_directory_and_output_widgets_block_main_thread';
 
   final Logger _logger;
   @override

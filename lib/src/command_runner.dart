@@ -40,7 +40,9 @@ class WidgetbookCoverageCliCommandRunner extends CompletionCommandRunner<int> {
 
     // Add sub commands
     addCommand(ReadSingleWidgetFileCommand(logger: _logger));
-    addCommand(ReadDirectoryAndOutputWidgetsCommand(logger: _logger));
+    addCommand(
+      ReadDirectoryAndOutputWidgetsBlockMainThreadCommand(logger: _logger),
+    );
     addCommand(SampleCommand(logger: _logger));
     addCommand(UpdateCommand(logger: _logger, pubUpdater: _pubUpdater));
   }
