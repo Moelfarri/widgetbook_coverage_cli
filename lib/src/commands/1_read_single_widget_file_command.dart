@@ -12,7 +12,7 @@ import 'package:mason_logger/mason_logger.dart';
 class ReadSingleWidgetFileCommand extends Command<int> {
   ReadSingleWidgetFileCommand({
     required Logger logger,
-  }) : _logger = logger {}
+  }) : _logger = logger;
 
   @override
   String get description =>
@@ -24,6 +24,7 @@ class ReadSingleWidgetFileCommand extends Command<int> {
   final Logger _logger;
   @override
   Future<int> run() async {
+    // get the file path from the arguments
     final argResults = this.argResults;
     if (argResults == null || argResults.rest.isEmpty) {
       _logger.err('Please provide a Dart file path.');
@@ -34,6 +35,7 @@ class ReadSingleWidgetFileCommand extends Command<int> {
     late final SomeResolvedUnitResult result;
 
     try {
+      // analyze the file
       result = await _analyzeFile(File(filePath).absolute.path, _logger);
     } catch (e) {
       _logger.err('Error during analyzer parsing of dart file: $e');
@@ -50,24 +52,6 @@ class ReadSingleWidgetFileCommand extends Command<int> {
 
     return ExitCode.success.code;
   }
-
-  /*void _parseAndFindWidgets(String fileContent) {
-    // Parse the Dart file content
-    final result = parseString(
-      content: fileContent,
-      throwIfDiagnostics: false,
-    );
-
-    // Error handling
-    if (result.errors.isNotEmpty) {
-      _logger.err('Parsing errors found: ${result.errors}');
-      return;
-    }
-
-    // AST visitor to find Stateful and Stateless Widgets
-    final visitor = WidgetVisitor(_logger);
-    result.unit.visitChildren(visitor);
-  }*/
 
   Future<SomeResolvedUnitResult> _analyzeFile(
     String filePath,
