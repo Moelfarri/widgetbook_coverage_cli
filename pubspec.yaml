@@ -1,12 +1,13 @@
 name: widgetbook_coverage_cli
 description: A Very Good Project created by Very Good CLI.
-version: 0.0.1
+version: 0.0.2
 publish_to: none
 
 environment:
   sdk: ^3.5.0
 
 dependencies:
+  analyzer: ^6.8.0
   args: ^2.5.0
   cli_completion: ^0.5.1
   mason_logger: ^0.3.0

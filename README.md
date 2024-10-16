@@ -24,6 +24,14 @@ Or locally via:
 dart pub global activate --source=path <path to this package>
 ```
 
+## During development
+
+Run the following command to update the CLI after making changes:
+
+```sh
+dart run widgetbook_coverage_cli <subcommand>
+```
+
 ## Usage
 
 ```sh
