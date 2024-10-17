@@ -9,3 +9,12 @@ class NestedWidget4 extends ConsumerWidget {
     throw UnimplementedError();
   }
 }
+
+class NestedWidget5 extends ConsumerWidget {
+  const NestedWidget5({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    throw UnimplementedError();
+  }
+}
