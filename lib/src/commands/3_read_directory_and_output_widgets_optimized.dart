@@ -1,4 +1,4 @@
-// ignore_for_file: file_names, lines_longer_than_80_chars, prefer_const_constructors, omit_local_variable_types, prefer_final_locals, unused_local_variable
+// ignore_for_file: file_names, lines_longer_than_80_chars, prefer_const_constructors, unused_local_variable, omit_local_variable_types, prefer_final_locals
 import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
@@ -12,8 +12,32 @@ import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:widgetbook_coverage_cli/src/error_handling/cli_exception.dart';
 
-class ReadDirectoryAndOutputWidgetsBlockMainThreadCommand extends Command<int> {
-  ReadDirectoryAndOutputWidgetsBlockMainThreadCommand({
+//TODO:
+// - make a new command that looks cleaner
+// - add widgetbook usecases part to it
+// - add the flag ideas
+// - remove the concurrency and batch stuff it does nothing really
+// - see if you can load widgets and widgetbook usecases using isolates for performance
+
+/// Flags:
+/// context flag to specify what should be loaded into the analyzer context
+///   - context should default to the root directory of the project that user is reading from
+///   - checks widget directory and attempts to deduce the root directory from that for example
+///     /lib/path/to/widgets => we should be in root
+///     project_name/lib/path/to/widgets => we should be in project_name, etc
+/// widget_directory flag to specify the directory to read the widgets from
+/// widgetbook_path flag to specify the path to the widgetbook
+
+//SOME OPTIMIZATION IDEAS:
+// - Maybe write a bundler? Parse all the files into one big one and get the analyzer context once?
+// - Use the simple analyzer parsing command vs the full analysis context collection depending on file?
+
+/// The command here and the one in 2_read_directory_and_output_widgets_block_main_thread.dart
+/// are similar in that they both read all the files in a directory and output the widgets.
+/// The difference is that this command tries to optimize the process by:
+/// - Loading the analyzer context once, into the root folder of the project and using the same context for all files
+class ReadDirectoryAndOutputWidgetsOptimizedCommand extends Command<int> {
+  ReadDirectoryAndOutputWidgetsOptimizedCommand({
     required Logger logger,
   }) : _logger = logger;
 
@@ -22,9 +46,17 @@ class ReadDirectoryAndOutputWidgetsBlockMainThreadCommand extends Command<int> {
       'A command that returns all widgets from a folder, including those in subfolders.';
 
   @override
-  String get name => 'read_directory_and_output_widgets_block_main_thread';
+  String get name => 'read_directory_and_output_widgets_optimized';
 
   final Logger _logger;
+
+  // Assume that the analyzer context is loaded once and used for all files
+  // and that the context is loaded into the root directory of the project
+  final AnalysisContextCollection analyzerContextCollection =
+      AnalysisContextCollection(
+    includedPaths: [Directory.current.path],
+  );
+
   @override
   Future<int> run() async {
     // Spawn a new isolate for time counting
@@ -80,10 +112,6 @@ class ReadDirectoryAndOutputWidgetsBlockMainThreadCommand extends Command<int> {
     }
   }
 
-  /* --------------------------------- Comment -------------------------------- */
-  // Maybe all the private functions should be dependency injected instead?
-  /* --------------------------------- Comment -------------------------------- */
-
   // gets all the absolute file paths in a directory Path
   Future<List<String>> _getAbsoluteFilePaths(String directoryPath) async {
     final directory = Directory(directoryPath);
@@ -113,13 +141,7 @@ class ReadDirectoryAndOutputWidgetsBlockMainThreadCommand extends Command<int> {
     }
 
     // Get the list of dart files
-    /* --------------------------------- Comment -------------------------------- */
-    // Sidebar: Could lazy load this by only returning the iterable
-    // and then loading the file when needed how ever this would require the
-    // analyzer context to be created for each file which is a worse
-    // trade off in this case. I'd rather we use more memory and get
-    // the results faster.
-    /* --------------------------------- Comment -------------------------------- */
+
     final dartFiles = directory
         .listSync(recursive: true)
         .whereType<File>()
@@ -138,33 +160,6 @@ class ReadDirectoryAndOutputWidgetsBlockMainThreadCommand extends Command<int> {
     return dartFiles;
   }
 
-  /* --------------------------------- Comment -------------------------------- */
-  // I have thought about a few things i wanted to try out firstly:
-  //
-  // - can we concurrently analyze the files?
-  // The short answer would probably be no, because as the list of files grows
-  // if we call Future.wait on all the files, the analyzer would have to
-  // read all the files into memory and then analyze them concurrently which
-  // would be a lot of memory usage. And somehow there might be a limit
-  // to the number of files we can analyze concurrently.
-  //
-  // We could read the files in batches and analyze them concurrently but
-  // we would still have to keep the AST nodes in memory until we are done
-  //
-  // Maybe we can analyze the files one by one
-
-  // - So in the scenario the user presents us with 5000 files we would
-  // have to keep all the AST nodes in memory until the analysis context
-
-  // - So maybe the safest is to have a stream of the resolved unit results
-  // and then we can process either one by one or in batches. Maybe batch
-  // processing could be a user flag?
-  //
-  // Things to try:
-  // - Maybe use an isolate to analyze the files concurrently?
-
-  /* --------------------------------- Comment -------------------------------- */
-
   /// A generator function that creates one analyzer context
   /// for each file and yields the resolved unit result
 
@@ -181,11 +176,6 @@ class ReadDirectoryAndOutputWidgetsBlockMainThreadCommand extends Command<int> {
       );
     }
 
-    // Create an AnalysisContextCollection for resolving Dart files
-    final collection = AnalysisContextCollection(
-      includedPaths: absoluteFilePaths,
-    );
-
     // Process files in batches of size `concurrency`
     for (var i = 0; i < absoluteFilePaths.length; i += concurrency) {
       // Get the current batch of file paths
@@ -194,7 +184,7 @@ class ReadDirectoryAndOutputWidgetsBlockMainThreadCommand extends Command<int> {
       // Process the batch concurrently using Future.wait()
       final batchResults = await Future.wait(
         batch.map((filePath) async {
-          final context = collection.contextFor(filePath);
+          final context = analyzerContextCollection.contextFor(filePath);
           return context.currentSession.getResolvedUnit(filePath);
         }),
       );
@@ -206,7 +196,7 @@ class ReadDirectoryAndOutputWidgetsBlockMainThreadCommand extends Command<int> {
     }
 
     // Dispose the collection when finished with all file paths
-    await collection.dispose();
+    await analyzerContextCollection.dispose();
   }
 }
 
@@ -263,10 +253,10 @@ class _WidgetVisitor extends GeneralizingAstVisitor<void> {
 // we run it in an isolate since the main thread is blocekd by the processing
 // of many analyzer contexts
 void _startStopwatchTimerInIsolate(SendPort sendPort) {
-  final Stopwatch stopwatch = Stopwatch()..start();
+  final stopwatch = Stopwatch()..start();
 
   // Send elapsed time to main isolate periodically
-  final Timer timer = Timer.periodic(const Duration(milliseconds: 20), (timer) {
+  final timer = Timer.periodic(const Duration(milliseconds: 20), (timer) {
     if (!timer.isActive) return;
 
     String elapsedTime =
