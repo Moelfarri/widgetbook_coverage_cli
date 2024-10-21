@@ -72,8 +72,6 @@ class CoverageCommand extends Command<int> {
 
   String? _widgetContextFlutterProjectName;
   String? _widgetbookContextFlutterProjectName;
-  String? _widgetTargetProjectName;
-  String? _widgetbookTargetProjectName;
 
   /* --------------------------------- Options -------------------------------- */
   /// The target path used by the analyzer to include the context to output

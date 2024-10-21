@@ -26,27 +26,6 @@ extension CoverageCommandDirectoryValidator on CoverageCommand {
     return _widgetbookContextFlutterProjectName!;
   }
 
-  String get widgetbookTargetProjectName {
-    _widgetbookTargetProjectName ??= File('$widgetbookTarget/pubspec.yaml')
-        .readAsStringSync()
-        .split('\n')
-        .firstWhere((line) => line.contains('name:'))
-        .split(':')
-        .last
-        .trim();
-    return _widgetbookTargetProjectName!;
-  }
-
-  String get widgetTargetProjectName {
-    _widgetTargetProjectName ??= File('$widgetTarget/pubspec.yaml')
-        .readAsStringSync()
-        .split('\n')
-        .firstWhere((line) => line.contains('name:'))
-        .split(':')
-        .last
-        .trim();
-    return _widgetTargetProjectName!;
-  }
   /* ------------------------------ Project name ------------------------------ */
 
   /// Checks if the [widgetContext] directory is a Flutter project root directory.
@@ -80,12 +59,12 @@ extension CoverageCommandDirectoryValidator on CoverageCommand {
       );
     }
 
-    if (widgetContextProjectName != widgetTargetProjectName) {
+    if (!widgetTarget.contains(widgetContext)) {
       throw CliException(
         '''
         The widget_context and widget_target options should point to the
-        same project, the widget_context project is $widgetContextProjectName
-        and the widget_target project is $widgetTargetProjectName.
+        same project. The widget_context project is $widgetContext and
+        the widget_target project is $widgetTarget.
         ''',
         ExitCode.usage.code,
       );
@@ -121,7 +100,7 @@ extension CoverageCommandDirectoryValidator on CoverageCommand {
     if (!pubspecContent.contains('widgetbook:')) {
       throw CliException(
         '''
-        Cannot find Widgetbook dependency in pubspec.yaml file, the coverage 
+        Cannot find widgetbook dependency in pubspec.yaml file, the coverage 
         command can only run from a Flutter project containing a widgetbook
         dependency. Specify the widgetbook_context option to a project
         containing a widgetbook dependency.
@@ -146,12 +125,12 @@ extension CoverageCommandDirectoryValidator on CoverageCommand {
       }
     }
 
-    if (widgetbookContextProjectName != widgetbookTargetProjectName) {
+    if (!widgetbookTarget.contains(widgetbookContext)) {
       throw CliException(
         '''
         The widgetbook_context and widgetbook_target options should point to the
-        same project, the widgetbook_context project is $widgetbookContextProjectName
-        and the widgetbook_target project is $widgetbookTargetProjectName.
+        same project, the widgetbook_context project is $widgetbookContext and
+        and the widgetbook_target project is $widgetbookTarget.
         ''',
         ExitCode.usage.code,
       );

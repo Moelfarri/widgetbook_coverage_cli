@@ -1,6 +1,6 @@
-name: test_project
+name: app2
 description: "A new Flutter project."
-publish_to: "none"
+publish_to: 'none'
 version: 0.1.0
 
 environment:
@@ -9,8 +9,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_riverpod: ^2.5.3
-  widgetbook: ^3.10.0
 
 dev_dependencies:
   flutter_test:
