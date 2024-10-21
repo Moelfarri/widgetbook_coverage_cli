@@ -1,3 +1,5 @@
+// ignore_for_file: lines_longer_than_80_chars
+
 import 'dart:io';
 
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
@@ -36,30 +38,65 @@ class CoverageCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    final argResults = this.argResults;
+    try {
+      if (!_isFlutterProjectRootDirectory()) {
+        return ExitCode.usage.code;
+      }
 
-    if (!_isFlutterProjectRootDirectory()) {
+      //TODO: add the different options or flags to the command
+      //TODO: create a functions that checks if the input is valid
+
+      //check the input of the user:
+      //- is it "lib/some/path" then we know current.path is root
+      //- is it "project_name/lib/src" then we know current.path/project_name is root
+
+      //the analyzer context needs to be root, so check for a few things:
+      // - check for pubspec.yaml file
+      // - check for lib folder
+
+      return ExitCode.success.code;
+    } on CliException catch (e) {
+      _logger.err(
+        e.message.split('\n').map((line) => line.trim()).join('\n'),
+      );
+      return e.exitCode;
+    } catch (e) {
+      _logger.err(e.toString());
+      return ExitCode.software.code;
+    }
+  }
+
+  /// Checks if the current directory is a Flutter project root directory.
+  /// By checking for the presence of a pubspec.yaml file
+  /// and Flutter dependency in the pubspec.yaml file.
+  bool _isFlutterProjectRootDirectory() {
+    final pubspecFile = File('${Directory.current.path}/pubspec.yaml');
+
+    // Check if pubspec.yaml exists
+    if (!pubspecFile.existsSync()) {
       throw CliException(
-        'This is not a Flutter project root directory',
+        '''
+        Cannot find a pubspec.yaml file, the coverage command can 
+        only run from a Flutter project root directory.
+        ''',
         ExitCode.usage.code,
       );
     }
 
-    //check the input of the user:
-    //- is it "lib/some/path" then we know current.path is root
-    //- is it "project_name/lib/src" then we know current.path/project_name is root
+    // Read the contents of pubspec.yaml
+    final pubspecContent = pubspecFile.readAsStringSync();
 
-    //the analyzer context needs to be root, so check for a few things:
-    // - check for pubspec.yaml file
-    // - check for lib folder
-  }
+    // Check for the presence of 'flutter' in the pubspec.yaml file
+    if (!pubspecContent.contains('flutter:')) {
+      throw CliException(
+        '''
+        Cannot find Flutter dependency in pubspec.yaml file, the coverage 
+        command can only run from a Flutter project root directory.
+        ''',
+        ExitCode.usage.code,
+      );
+    }
 
-  /// Checks if the current directory is a Flutter project root directory.
-  /// By checking for the presence of a pubspec.yaml file or a lib directory.
-  bool _isFlutterProjectRootDirectory(String currentPath) {
-    final pubspecFile = File('${Directory.current.path}/pubspec.yaml');
-    final libDirectory = Directory('${Directory.current.path}/lib');
-
-    return pubspecFile.existsSync() || libDirectory.existsSync();
+    return true;
   }
 }

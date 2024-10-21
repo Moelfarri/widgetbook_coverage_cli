@@ -47,6 +47,7 @@ class WidgetbookCoverageCliCommandRunner extends CompletionCommandRunner<int> {
     addCommand(
       ReadDirectoryAndOutputWidgetsOptimizedCommand(logger: _logger),
     );
+    addCommand(CoverageCommand(logger: _logger));
     addCommand(SampleCommand(logger: _logger));
     addCommand(UpdateCommand(logger: _logger, pubUpdater: _pubUpdater));
   }
