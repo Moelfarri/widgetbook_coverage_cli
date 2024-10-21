@@ -7,19 +7,9 @@ import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:widgetbook_coverage_cli/src/error_handling/cli_exception.dart';
 
-part 'analyze_widget_target.part.dart';
-part 'analyze_widgetbook_target.part.dart';
-part 'directory_validator.extension.dart';
-
-/*
-How should the command be looking like?
-
-widgetbook_coverage_cli coverage
-  --widget_context=<project_root> 
-  --widgetbook_context=<widgetbook_project_root> if not specified defaults to widget_context
-  --widget_target=lib/widgets= defaults to project_root/lib if not specified
-  --widgetbook_target=lib/widgetbook.dart defaults to widgetbook_project_root/lib if not specified
- */
+part 'analyze_widgetbook_usecases_target.dart';
+part 'analyze_widgets_target.part.dart';
+part 'directory_validator.part.dart';
 
 ////TODO: Allow user to ignore certain files, folders
 /// TODO: Add a coverage file
@@ -32,24 +22,24 @@ class CoverageCommand extends Command<int> {
   }) : _logger = logger {
     argParser
       ..addOption(
-        'widget_context',
+        'flutter_project',
         help:
             'Target path for analyzer context of the Flutter project, defaults to the current directory if not specified.',
       )
       ..addOption(
-        'widgetbook_context',
+        'widgetbook_project',
         help:
             'Target path for analyzer context of the widgetbook project, defaults to the current directory if not specified.',
       )
       ..addOption(
-        'widget_target',
+        'widgets_target',
         help:
-            'Target path for the widgets folder, defaults to  <widget_context>/lib if not specified.',
+            'Target path for the widgets folder, defaults to  <flutter_project>/lib if not specified.',
       )
       ..addOption(
-        'widgetbook_target',
+        'widgetbook_usecases_target',
         help:
-            'Target path for the widgetbook, defaults to  <widgetbook_context>/lib if not specified.',
+            'Target path for the widgetbook usecases folder, defaults to  <widgetbook_project>/lib if not specified.',
       );
   }
 
@@ -64,56 +54,55 @@ class CoverageCommand extends Command<int> {
 
   AnalysisContextCollection get analyzerContext => AnalysisContextCollection(
         includedPaths: [
-          Directory(widgetContext).absolute.path,
-          if (widgetContext != widgetbookContext)
-            Directory(widgetbookContext).absolute.path,
+          Directory(flutterProject).absolute.path,
+          if (flutterProject != widgetbookProject)
+            Directory(widgetbookProject).absolute.path,
         ],
       );
 
-  String? _widgetContextFlutterProjectName;
-  String? _widgetbookContextFlutterProjectName;
+  String? _flutterProjectFlutterProjectName;
+  String? _widgetbookProjectFlutterProjectName;
 
   /* --------------------------------- Options -------------------------------- */
   /// The target path used by the analyzer to include the context to output
   /// The widgets in the project and their dependencies.
-  String get widgetContext =>
-      argResults?['widget_context'] as String? ?? Directory.current.path;
+  String get flutterProject =>
+      argResults?['flutter_project'] as String? ?? Directory.current.path;
 
   /// The option used by the analyzer to include enough context to output
   /// the widgets included in widgetbook.
-  String get widgetbookContext =>
-      argResults?['widgetbook_context'] as String? ?? Directory.current.path;
+  String get widgetbookProject =>
+      argResults?['widgetbook_project'] as String? ?? Directory.current.path;
 
   /// The target path for the widgets folder we wish to check for coverage.
-  String get widgetTarget =>
-      argResults?['widget_target'] as String? ?? '$widgetContext/lib';
+  String get widgetsTarget =>
+      argResults?['widgets_target'] as String? ?? '$flutterProject/lib';
 
   /// The target path for the widgetbook folder we wish to check for coverage.
-  String get widgetbookTarget =>
-      argResults?['widgetbook_target'] as String? ?? '$widgetbookContext/lib';
+  String get widgetbookUsecasesTarget =>
+      argResults?['widgetbook_usecases_target'] as String? ??
+      '$widgetbookProject/lib';
   /* --------------------------------- Options -------------------------------- */
 
   @override
   Future<int> run() async {
     try {
+      if (!_isValidDirectoryInputs()) {
+        return ExitCode.usage.code;
+      }
+
       /* ---------------------- validity checks of the input ---------------------- */
       if (!_isFlutterProject() || !_isValidWidgetbookProject()) {
         return ExitCode.usage.code;
       }
 
-      if (!_isValidDirectory(widgetContext) ||
-          !_isValidDirectory(widgetbookContext) ||
-          !_isValidDirectory(widgetTarget) ||
-          !_isValidDirectory(widgetbookTarget)) {
-        return ExitCode.usage.code;
-      }
       /* ---------------------- validity checks of the input ---------------------- */
 
       /* ------------- get file paths to be evaluated by the analyzer ------------- */
-      final widgetPaths = await _getFilePaths(widgetTarget);
-      final widgetbookPaths = widgetTarget == widgetbookTarget
+      final widgetPaths = await _getFilePaths(widgetsTarget);
+      final widgetbookPaths = widgetsTarget == widgetbookUsecasesTarget
           ? widgetPaths
-          : await _getFilePaths(widgetbookTarget);
+          : await _getFilePaths(widgetbookUsecasesTarget);
       /* ------------- get file paths to be evaluated by the analyzer ------------- */
 
       //TODO: test a bit different stuff

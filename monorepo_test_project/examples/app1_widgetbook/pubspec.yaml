@@ -1,6 +1,6 @@
 name: app1_widgetbook
 description: "A new Flutter project."
-publish_to: 'none'
+publish_to: "none"
 version: 0.1.0
 
 environment:
@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  widgetbook: ^3.10.0
+  app1:
+    path: "../../apps/app1"
 
 dev_dependencies:
   flutter_test:

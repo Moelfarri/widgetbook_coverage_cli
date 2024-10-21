@@ -32,7 +32,7 @@ Run the following command to update the CLI after making changes:
 dart run widgetbook_coverage_cli <subcommand>
 ```
 
-## Usage
+## Usage Hello World
 
 ```sh
 # Sample command
@@ -46,6 +46,39 @@ $ widgetbook_coverage_cli --version
 
 # Show usage help
 $ widgetbook_coverage_cli --help
+```
+
+## Usage Coverage Command
+
+Run the coverage command for a Flutter project with the following command:
+
+```sh
+$ widgetbook_coverage_cli coverage
+```
+
+If no option is specified then current directory is uses.
+
+## Usage Coverage Command with options
+
+If you have a monorepo and you have seperated your widgetbook code from the main flutter project, you can specify
+the root directory of the flutter project and the widgetbook project using the following command:
+
+```sh
+$ widgetbook_coverage_cli coverage
+--flutter_project=<path to root of flutter app>
+--widgetbook_project=<path to root of widgetbook app>
+--widgets_target=<path to folder containing widgets to be analyzed>
+--widgetbook_usecases_target=<path to folder containing widgetbook use cases to be analyzed>
+```
+
+Here is an example of a valid command:
+
+```sh
+dart run widgetbook_coverage_cli coverage
+--flutter_project="monorepo_test_project/apps/app1"
+--widgetbook_project="monorepo_test_project/examples/app1_widgetbook"
+--widgets_target="monorepo_test_project/apps/app1/lib/specific/widgetsfolder"
+--widgetbook_usecases_target="monorepo_test_project/examples/app1_widgetbook/specific/usecasesfolder"
 ```
 
 ## Running Tests with coverage 🧪
