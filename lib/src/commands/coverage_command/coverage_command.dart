@@ -63,23 +63,46 @@ class CoverageCommand extends Command<int> {
     includedPaths: [Directory.current.path],
   );
 
+  /* --------------------------------- Options -------------------------------- */
+  /// The target path used by the analyzer to include the context to output
+  /// The widgets in the project and their dependencies.
+  String get widgetContext =>
+      argResults?['widget_context'] as String? ?? Directory.current.path;
+
+  /// The option used by the analyzer to include enough context to output
+  /// the widgets included in widgetbook.
+  String get widgetbookContext =>
+      argResults?['widgetbook_context'] as String? ?? Directory.current.path;
+
+  /// The target path for the widgets folder we wish to check for coverage.
+  String get widgetTarget =>
+      argResults?['widget_target'] as String? ??
+      '${Directory.current.path}/lib';
+
+  /// The target path for the widgetbook folder we wish to check for coverage.
+  String get widgetbookTarget =>
+      argResults?['widgetbook_target'] as String? ??
+      '${Directory.current.path}/lib';
+
   @override
   Future<int> run() async {
     try {
+      /* ---------------------- validity checks of the input ---------------------- */
       if (!_isFlutterProjectRootDirectory()) {
         return ExitCode.usage.code;
       }
 
-      //TODO: add the different options or flags to the command
-      //TODO: create a functions that checks if the input is valid
+      if (!_isValidDirectory(widgetContext) ||
+          !_isValidDirectory(widgetbookContext) ||
+          !_isValidDirectory(widgetTarget) ||
+          !_isValidDirectory(widgetbookTarget)) {
+        return ExitCode.usage.code;
+      }
+      /* ---------------------- validity checks of the input ---------------------- */
 
-      //check the input of the user:
-      //- is it "lib/some/path" then we know current.path is root
-      //- is it "project_name/lib/src" then we know current.path/project_name is root
-
-      //the analyzer context needs to be root, so check for a few things:
-      // - check for pubspec.yaml file
-      // - check for lib folder
+      //TODO:
+      // - Get all the files in the widget directory
+      // - Get all the files in the widgetbook directory
 
       return ExitCode.success.code;
     } on CliException catch (e) {
@@ -121,6 +144,41 @@ class CoverageCommand extends Command<int> {
         command can only run from a Flutter project root directory.
         ''',
         ExitCode.usage.code,
+      );
+    }
+
+    return true;
+  }
+
+  /// Checks if the provided path is a valid directory.
+  bool _isValidDirectory(String path) {
+    final directory = Directory(path);
+
+    if (path.isEmpty) {
+      throw CliException(
+        'Empty path argument is invalid.',
+        ExitCode.usage.code,
+      );
+    }
+
+    if (directory.statSync().type != FileSystemEntityType.directory) {
+      throw CliException(
+        '$path is not a directory.',
+        ExitCode.ioError.code,
+      );
+    }
+
+    if (!directory.existsSync()) {
+      throw CliException(
+        'Directory $path not found.',
+        ExitCode.ioError.code,
+      );
+    }
+
+    if (directory.listSync().isEmpty) {
+      throw CliException(
+        'Empty directory $path cannot be set as target for coverage.',
+        ExitCode.ioError.code,
       );
     }
 

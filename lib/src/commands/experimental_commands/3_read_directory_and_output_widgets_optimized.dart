@@ -71,7 +71,7 @@ class ReadDirectoryAndOutputWidgetsOptimizedCommand extends Command<int> {
       final argResults = this.argResults;
       if (argResults == null || argResults.rest.isEmpty) {
         throw CliException(
-          'Please provide a Dart file path.',
+          'Please provide a valid folder path.',
           ExitCode.usage.code,
         );
       }
