@@ -9,6 +9,7 @@ import 'package:widgetbook_coverage_cli/src/error_handling/cli_exception.dart';
 
 part 'analyze_widget_target.part.dart';
 part 'analyze_widgetbook_target.part.dart';
+part 'directory_validator.extension.dart';
 
 /*
 How should the command be looking like?
@@ -24,13 +25,6 @@ widgetbook_coverage_cli coverage
 /// TODO: Add a coverage file
 /// TODO: Allow user to specify the output file for the coverage report
 /// TODO: exclude private widgets
-
-///TODO:
-/// - Make widget_target default to widget_context/lib
-/// - Make the widgetbook_target default to widgetbook_context/lib
-/// - if widget_context and widget_target has differnt project names, throw an error
-/// - if widgetbook_context and widgetbook_target has different project names, throw an error
-/// - if widgetbook_context has a different project than widget_context and it does not import the project in widget_context, throw an error
 
 class CoverageCommand extends Command<int> {
   CoverageCommand({
@@ -50,12 +44,12 @@ class CoverageCommand extends Command<int> {
       ..addOption(
         'widget_target',
         help:
-            'Target path for the widgets folder, defaults to  <current directory>/lib if not specified.',
+            'Target path for the widgets folder, defaults to  <widget_context>/lib if not specified.',
       )
       ..addOption(
         'widgetbook_target',
         help:
-            'Target path for the widgetbook, defaults to  <current directory>/lib if not specified.',
+            'Target path for the widgetbook, defaults to  <widgetbook_context>/lib if not specified.',
       );
   }
 
@@ -76,6 +70,11 @@ class CoverageCommand extends Command<int> {
         ],
       );
 
+  String? _widgetContextFlutterProjectName;
+  String? _widgetbookContextFlutterProjectName;
+  String? _widgetTargetProjectName;
+  String? _widgetbookTargetProjectName;
+
   /* --------------------------------- Options -------------------------------- */
   /// The target path used by the analyzer to include the context to output
   /// The widgets in the project and their dependencies.
@@ -89,20 +88,18 @@ class CoverageCommand extends Command<int> {
 
   /// The target path for the widgets folder we wish to check for coverage.
   String get widgetTarget =>
-      argResults?['widget_target'] as String? ??
-      '${Directory.current.path}/lib';
+      argResults?['widget_target'] as String? ?? '$widgetContext/lib';
 
   /// The target path for the widgetbook folder we wish to check for coverage.
   String get widgetbookTarget =>
-      argResults?['widgetbook_target'] as String? ??
-      '${Directory.current.path}/lib';
+      argResults?['widgetbook_target'] as String? ?? '$widgetbookContext/lib';
   /* --------------------------------- Options -------------------------------- */
 
   @override
   Future<int> run() async {
     try {
       /* ---------------------- validity checks of the input ---------------------- */
-      if (!_isFlutterProject() || !_isWidgetbookProject()) {
+      if (!_isFlutterProject() || !_isValidWidgetbookProject()) {
         return ExitCode.usage.code;
       }
 
@@ -139,112 +136,6 @@ class CoverageCommand extends Command<int> {
       _logger.err(e.toString());
       return ExitCode.software.code;
     }
-  }
-
-  /// Checks if the [widgetContext] directory is a Flutter project root directory.
-  /// By checking for the presence of a pubspec.yaml file
-  /// and Flutter dependency in the pubspec.yaml file.
-  bool _isFlutterProject() {
-    final pubspecFile = File('$widgetContext/pubspec.yaml');
-
-    // Check if pubspec.yaml exists
-    if (!pubspecFile.existsSync()) {
-      throw CliException(
-        '''
-        Cannot find a pubspec.yaml file, the coverage command can 
-        only run from a Flutter project root directory.
-        ''',
-        ExitCode.usage.code,
-      );
-    }
-
-    // Read the contents of pubspec.yaml
-    final pubspecContent = pubspecFile.readAsStringSync();
-
-    // Check for the presence of 'flutter' in the pubspec.yaml file
-    if (!pubspecContent.contains('flutter:')) {
-      throw CliException(
-        '''
-        Cannot find Flutter dependency in pubspec.yaml file, the coverage 
-        command can only run from a Flutter project root directory.
-        ''',
-        ExitCode.usage.code,
-      );
-    }
-
-    return true;
-  }
-
-  bool _isWidgetbookProject() {
-    final pubspecFile = File('$widgetbookContext/pubspec.yaml');
-
-    //TODO: if widgetbook_context and widget_context are not the same;
-    //TODO: Then check that the widgetbook project imports the widget_context project
-    //TODO: otherwise throw an error
-
-    // Check if pubspec.yaml exists
-    if (!pubspecFile.existsSync()) {
-      throw CliException(
-        '''
-        Cannot find a pubspec.yaml file, the coverage command can 
-        only run from a Flutter project root directory.
-        ''',
-        ExitCode.usage.code,
-      );
-    }
-
-    // Read the contents of pubspec.yaml
-    final pubspecContent = pubspecFile.readAsStringSync();
-
-    // Check for the presence of 'flutter' in the pubspec.yaml file
-    if (!pubspecContent.contains('widgetbook:')) {
-      throw CliException(
-        '''
-        Cannot find Widgetbook dependency in pubspec.yaml file, the coverage 
-        command can only run from a Flutter project containing a widgetbook
-        dependency. Specify the widgetbook_context option to a project
-        containing a widgetbook dependency.
-        ''',
-        ExitCode.usage.code,
-      );
-    }
-
-    return true;
-  }
-
-  /// Checks if the provided path is a valid directory.
-  bool _isValidDirectory(String path) {
-    final directory = Directory(path);
-
-    if (path.isEmpty) {
-      throw CliException(
-        'Empty path argument is invalid.',
-        ExitCode.usage.code,
-      );
-    }
-
-    if (directory.statSync().type != FileSystemEntityType.directory) {
-      throw CliException(
-        '$path is not a directory.',
-        ExitCode.ioError.code,
-      );
-    }
-
-    if (!directory.existsSync()) {
-      throw CliException(
-        'Directory $path not found.',
-        ExitCode.ioError.code,
-      );
-    }
-
-    if (directory.listSync().isEmpty) {
-      throw CliException(
-        'Empty directory $path cannot be set as target for coverage.',
-        ExitCode.ioError.code,
-      );
-    }
-
-    return true;
   }
 
   /// gets all the absolute file paths in a directory path.
