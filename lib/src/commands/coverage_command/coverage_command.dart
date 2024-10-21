@@ -1,11 +1,14 @@
-// ignore_for_file: lines_longer_than_80_chars
-
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
+import 'package:analyzer/dart/analysis/results.dart';
 import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:widgetbook_coverage_cli/src/error_handling/cli_exception.dart';
+
+part 'analyze_widget_target.part.dart';
+part 'analyze_widgetbook_target.part.dart';
 
 /*
 How should the command be looking like?
@@ -21,6 +24,13 @@ widgetbook_coverage_cli coverage
 /// TODO: Add a coverage file
 /// TODO: Allow user to specify the output file for the coverage report
 /// TODO: exclude private widgets
+
+///TODO:
+/// - Make widget_target default to widget_context/lib
+/// - Make the widgetbook_target default to widgetbook_context/lib
+/// - if widget_context and widget_target has differnt project names, throw an error
+/// - if widgetbook_context and widgetbook_target has different project names, throw an error
+/// - if widgetbook_context has a different project than widget_context and it does not import the project in widget_context, throw an error
 
 class CoverageCommand extends Command<int> {
   CoverageCommand({
@@ -58,10 +68,13 @@ class CoverageCommand extends Command<int> {
 
   final Logger _logger;
 
-  final AnalysisContextCollection analyzerContextCollection =
-      AnalysisContextCollection(
-    includedPaths: [Directory.current.path],
-  );
+  AnalysisContextCollection get analyzerContext => AnalysisContextCollection(
+        includedPaths: [
+          Directory(widgetContext).absolute.path,
+          if (widgetContext != widgetbookContext)
+            Directory(widgetbookContext).absolute.path,
+        ],
+      );
 
   /* --------------------------------- Options -------------------------------- */
   /// The target path used by the analyzer to include the context to output
@@ -83,12 +96,13 @@ class CoverageCommand extends Command<int> {
   String get widgetbookTarget =>
       argResults?['widgetbook_target'] as String? ??
       '${Directory.current.path}/lib';
+  /* --------------------------------- Options -------------------------------- */
 
   @override
   Future<int> run() async {
     try {
       /* ---------------------- validity checks of the input ---------------------- */
-      if (!_isFlutterProjectRootDirectory()) {
+      if (!_isFlutterProject() || !_isWidgetbookProject()) {
         return ExitCode.usage.code;
       }
 
@@ -100,9 +114,20 @@ class CoverageCommand extends Command<int> {
       }
       /* ---------------------- validity checks of the input ---------------------- */
 
-      //TODO:
-      // - Get all the files in the widget directory
-      // - Get all the files in the widgetbook directory
+      /* ------------- get file paths to be evaluated by the analyzer ------------- */
+      final widgetPaths = await _getFilePaths(widgetTarget);
+      final widgetbookPaths = widgetTarget == widgetbookTarget
+          ? widgetPaths
+          : await _getFilePaths(widgetbookTarget);
+      /* ------------- get file paths to be evaluated by the analyzer ------------- */
+
+      //TODO: test a bit different stuff
+      _resolveDartFiles(
+        widgetPaths,
+        analyzerContext: analyzerContext,
+      ).listen((data) {
+        print(data);
+      });
 
       return ExitCode.success.code;
     } on CliException catch (e) {
@@ -116,11 +141,11 @@ class CoverageCommand extends Command<int> {
     }
   }
 
-  /// Checks if the current directory is a Flutter project root directory.
+  /// Checks if the [widgetContext] directory is a Flutter project root directory.
   /// By checking for the presence of a pubspec.yaml file
   /// and Flutter dependency in the pubspec.yaml file.
-  bool _isFlutterProjectRootDirectory() {
-    final pubspecFile = File('${Directory.current.path}/pubspec.yaml');
+  bool _isFlutterProject() {
+    final pubspecFile = File('$widgetContext/pubspec.yaml');
 
     // Check if pubspec.yaml exists
     if (!pubspecFile.existsSync()) {
@@ -142,6 +167,43 @@ class CoverageCommand extends Command<int> {
         '''
         Cannot find Flutter dependency in pubspec.yaml file, the coverage 
         command can only run from a Flutter project root directory.
+        ''',
+        ExitCode.usage.code,
+      );
+    }
+
+    return true;
+  }
+
+  bool _isWidgetbookProject() {
+    final pubspecFile = File('$widgetbookContext/pubspec.yaml');
+
+    //TODO: if widgetbook_context and widget_context are not the same;
+    //TODO: Then check that the widgetbook project imports the widget_context project
+    //TODO: otherwise throw an error
+
+    // Check if pubspec.yaml exists
+    if (!pubspecFile.existsSync()) {
+      throw CliException(
+        '''
+        Cannot find a pubspec.yaml file, the coverage command can 
+        only run from a Flutter project root directory.
+        ''',
+        ExitCode.usage.code,
+      );
+    }
+
+    // Read the contents of pubspec.yaml
+    final pubspecContent = pubspecFile.readAsStringSync();
+
+    // Check for the presence of 'flutter' in the pubspec.yaml file
+    if (!pubspecContent.contains('widgetbook:')) {
+      throw CliException(
+        '''
+        Cannot find Widgetbook dependency in pubspec.yaml file, the coverage 
+        command can only run from a Flutter project containing a widgetbook
+        dependency. Specify the widgetbook_context option to a project
+        containing a widgetbook dependency.
         ''',
         ExitCode.usage.code,
       );
@@ -184,4 +246,13 @@ class CoverageCommand extends Command<int> {
 
     return true;
   }
+
+  /// gets all the absolute file paths in a directory path.
+  Future<List<String>> _getFilePaths(String directoryPath) async =>
+      Directory(directoryPath)
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'))
+          .map((file) => file.absolute.path)
+          .toList();
 }
