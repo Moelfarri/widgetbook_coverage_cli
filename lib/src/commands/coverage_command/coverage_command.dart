@@ -13,18 +13,45 @@ How should the command be looking like?
 widgetbook_coverage_cli coverage
   --widget_context=<project_root> 
   --widgetbook_context=<widgetbook_project_root> if not specified defaults to widget_context
-  --widget_path=lib/widgets= defaults to project_root/lib if not specified
-  --widgetbook_path=lib/widgetbook.dart defaults to widgetbook_project_root/lib if not specified
+  --widget_target=lib/widgets= defaults to project_root/lib if not specified
+  --widgetbook_target=lib/widgetbook.dart defaults to widgetbook_project_root/lib if not specified
  */
+
+////TODO: Allow user to ignore certain files, folders
+/// TODO: Add a coverage file
+/// TODO: Allow user to specify the output file for the coverage report
+/// TODO: exclude private widgets
 
 class CoverageCommand extends Command<int> {
   CoverageCommand({
     required Logger logger,
-  }) : _logger = logger;
+  }) : _logger = logger {
+    argParser
+      ..addOption(
+        'widget_context',
+        help:
+            'Target path for analyzer context of the Flutter project, defaults to the current directory if not specified.',
+      )
+      ..addOption(
+        'widgetbook_context',
+        help:
+            'Target path for analyzer context of the widgetbook project, defaults to the current directory if not specified.',
+      )
+      ..addOption(
+        'widget_target',
+        help:
+            'Target path for the widgets folder, defaults to  <current directory>/lib if not specified.',
+      )
+      ..addOption(
+        'widgetbook_target',
+        help:
+            'Target path for the widgetbook, defaults to  <current directory>/lib if not specified.',
+      );
+  }
 
   @override
   String get description =>
-      'A command that checks for widgetbook coverage in a project';
+      'A command that checks for widgetbook coverage in a project.';
 
   @override
   String get name => 'coverage';
