@@ -3,12 +3,17 @@ import 'dart:isolate';
 
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
+import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/visitor.dart';
+import 'package:analyzer/dart/element/element.dart';
 import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:widgetbook_coverage_cli/src/error_handling/cli_exception.dart';
 
 part 'analyze_widgetbook_usecases_target.dart';
-part 'analyze_widgets_target.part.dart';
+part 'analyze_widgets_target.dart';
+part 'widget_visitor.dart';
+part 'widgetbook_use_case_visitor.dart';
 
 ////TODO: Feature ideas:
 /// - Allow user to ignore certain files, folders
@@ -127,19 +132,34 @@ class CoverageCommand extends Command<int> {
       /* ------------- get file paths to be evaluated by the analyzer ------------- */
 
       //TODO:
-      // - evaluate the _resolveDartFiles name
       // - test getting the widgets
       // - test getting the widgetbook usecases
       // - compare the widgets and widgetbook usecases
       // - output the widgets that are not covered by the widgetbook usecases
       // - Make a figma design of how the command works currently
 
+      /* ------------------------ get widgets and usecases ------------------------ */
+      final widgetVisitor = WidgetVisitor(_logger);
       _resolveDartFiles(
         widgetPaths,
         analyzerContext: analyzerContext,
-      ).listen((data) {
-        print(data);
-      });
+      ).listen((result) {
+        if (result is ResolvedUnitResult) {
+          result.unit.visitChildren(widgetVisitor);
+        }
+      }).onDone(
+        () {
+          _logger.info(
+            'Found ${widgetVisitor.widgets.length} Widgets, here is the list: ${widgetVisitor.widgets}',
+          );
+        },
+      );
+
+      _resolveDartFiles(
+        widgetbookPaths,
+        analyzerContext: analyzerContext,
+      ).listen((data) {});
+      /* ------------------------ get widgets and usecases ------------------------ */
 
       return ExitCode.success.code;
     } on CliException catch (e) {
