@@ -9,7 +9,8 @@
 // **************************************************************************
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:app1_widgetbook/widgets/stateless_widget_use_case.dart' as _i2;
+import 'package:test_project/widgetbook/widgets/stateless_widget_use_case.dart'
+    as _i2;
 import 'package:widgetbook/widgetbook.dart' as _i1;
 
 final directories = <_i1.WidgetbookNode>[
