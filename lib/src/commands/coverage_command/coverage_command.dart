@@ -27,6 +27,11 @@ part 'widgetbook_use_case_visitor.dart';
 /// - Allow user to specify the output file for the coverage report
 /// - Allow user to exclude private widgets
 /// - Add strict flag to fail if there are any uncovered widgets
+/// - cache the initial analyzer context for future runs (Persistent Analysis Sessions)
+///   - For example we know that ConsumerWidget, so we can cache that and not reanalyze it for subsequent runs
+///   - So what we need to do is to cache the superclasses of unknown widget types ConsumerWidget etc and
+///     reuse them for subsequent runs so we dont need to reload the analyzer for them. And maybe we only use the
+///     analyzer for new uknown widget types that might pop up.
 
 class CoverageCommand extends Command<int> {
   CoverageCommand({
@@ -66,29 +71,18 @@ class CoverageCommand extends Command<int> {
 
   late final TimeLogger _timeLogger = TimeLogger(_logger);
 
-  String? _flutterProjectFlutterProjectName;
-  String get flutterProjectProjectName {
-    _flutterProjectFlutterProjectName ??= File('$flutterProject/pubspec.yaml')
+  String? _flutterProjectName;
+  String get flutterProjectName {
+    _flutterProjectName ??= File('$flutterProject/pubspec.yaml')
         .readAsStringSync()
         .split('\n')
         .firstWhere((line) => line.contains('name:'))
         .split(':')
         .last
-        .trim();
-    return _flutterProjectFlutterProjectName!;
-  }
+        .trim()
+        .replaceAll(RegExp(r'''^[\'"]|[\'"]$'''), '');
 
-  String? _widgetbookProjectFlutterProjectName;
-  String get widgetbookProjectProjectName {
-    _widgetbookProjectFlutterProjectName ??=
-        File('$widgetbookProject/pubspec.yaml')
-            .readAsStringSync()
-            .split('\n')
-            .firstWhere((line) => line.contains('name:'))
-            .split(':')
-            .last
-            .trim();
-    return _widgetbookProjectFlutterProjectName!;
+    return _flutterProjectName!;
   }
 
   /* --------------------------------- Options -------------------------------- */
@@ -157,14 +151,18 @@ class CoverageCommand extends Command<int> {
 
       final widgets = futures.first;
       final usecases = futures.last;
+      final uncoveredWidgets = <String>[];
       /* ------------------------ get widgets and usecases ------------------------ */
 
       /* ---------------------- compare widgets and usecases ---------------------- */
-      //TODO TODAY:
-      // - compare the widgets and widgetbook usecases
-      // - output the widgets that are not covered by the widgetbook usecases
-      // - Make a figma design of how the command works currently
+      for (var widget in widgets) {
+        if (!usecases.contains(widget)) {
+          uncoveredWidgets.add(widget);
+        }
+      }
 
+      _logger.info('Currently Uncovered widgets: ${uncoveredWidgets.length} \n '
+          'Uncovered widgets: ${uncoveredWidgets.join(', ')}');
       /* ---------------------- compare widgets and usecases ---------------------- */
 
       return ExitCode.success.code;
@@ -287,11 +285,11 @@ class CoverageCommand extends Command<int> {
     // if widgetbook context is a different project, check if the widgetbook
     // project imports the flutter project
     if (widgetbookProject != flutterProject) {
-      if (!pubspecContent.contains('$flutterProjectProjectName:')) {
+      if (!pubspecContent.contains('$flutterProjectName:')) {
         throw CliException(
           '''
           The widgetbook project in $widgetbookProject does not depend on the
-          Flutter project $flutterProjectProjectName. widgetbook_project
+          Flutter project $flutterProjectName. widgetbook_project
           should point to the widgetbook project related to the Flutter project
           in flutter_project $flutterProject. 
           ''',

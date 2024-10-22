@@ -21,7 +21,14 @@ class TimeLogger {
 
   void stop(String message) {
     _stopwatch.stop();
-    logger.info('✨ $message (${_stopwatch.elapsedMilliseconds}ms)');
+
+    if (_stopwatch.elapsedMilliseconds > 1000) {
+      logger.info(
+          '✨ $message (${_stopwatch.elapsed.inSeconds}.${(_stopwatch.elapsedMilliseconds % 1000).toString().padLeft(3, '0')}s)');
+    } else {
+      logger.info('✨ $message (${_stopwatch.elapsedMilliseconds}ms)');
+    }
+
     isStopped = true;
   }
 }
