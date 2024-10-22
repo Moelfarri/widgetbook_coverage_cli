@@ -1,9 +1,7 @@
 part of 'coverage_command.dart';
 
 class WidgetVisitor extends GeneralizingAstVisitor<void> {
-  WidgetVisitor(this.logger);
-
-  final Logger logger;
+  WidgetVisitor();
 
   final List<String> widgets = <String>[];
 
@@ -12,13 +10,15 @@ class WidgetVisitor extends GeneralizingAstVisitor<void> {
     // Start by getting the superclass name
     final superClass = node.extendsClause?.superclass;
 
-    if (superClass != null && node.declaredElement != null) {
-      // Check if the class is or extends a widget
-      if (_isWidgetClass(node.declaredElement!)) {
-        // logger.info('Found widget: ${node.name}');
-        widgets.add(node.name.toString());
-      }
-    }
+    // - if there's no super class then it is not a widget
+    // - if the node does not have a declared element then the analyzer doesn't
+    //  have enough information to determine if it is a widget
+    // - if the class is not a widget then we don't need to add it to the list
+    if (superClass == null) return;
+    if (node.declaredElement == null) return;
+    if (!_isWidgetClass(node.declaredElement!)) return;
+
+    widgets.add(node.name.toString());
 
     super.visitClassDeclaration(node);
   }

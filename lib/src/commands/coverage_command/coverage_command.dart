@@ -1,8 +1,12 @@
+// ignore_for_file: unused_local_variable
+
 import 'dart:io';
 import 'dart:isolate';
 
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
+import 'package:analyzer/dart/analysis/features.dart';
 import 'package:analyzer/dart/analysis/results.dart';
+import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
@@ -10,16 +14,19 @@ import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:widgetbook_coverage_cli/src/error_handling/cli_exception.dart';
 
-part 'analyze_widgetbook_usecases_target.dart';
-part 'analyze_widgets_target.dart';
+part 'get_project_widgetbook_usecases.dart';
+part 'get_project_widgets.dart';
+part 'models.dart';
+part 'time_logger.dart';
 part 'widget_visitor.dart';
 part 'widgetbook_use_case_visitor.dart';
 
 ////TODO: Feature ideas:
 /// - Allow user to ignore certain files, folders
-/// - Add a coverage file
+/// - Add a lcov coverage file
 /// - Allow user to specify the output file for the coverage report
 /// - Allow user to exclude private widgets
+/// - Add strict flag to fail if there are any uncovered widgets
 
 class CoverageCommand extends Command<int> {
   CoverageCommand({
@@ -57,13 +64,7 @@ class CoverageCommand extends Command<int> {
 
   final Logger _logger;
 
-  AnalysisContextCollection get analyzerContext => AnalysisContextCollection(
-        includedPaths: [
-          Directory(flutterProject).absolute.path,
-          if (flutterProject != widgetbookProject)
-            Directory(widgetbookProject).absolute.path,
-        ],
-      );
+  late final TimeLogger _timeLogger = TimeLogger(_logger);
 
   String? _flutterProjectFlutterProjectName;
   String get flutterProjectProjectName {
@@ -115,6 +116,7 @@ class CoverageCommand extends Command<int> {
   Future<int> run() async {
     try {
       /* ---------------------- validity checks of the input ---------------------- */
+      _timeLogger.start('Validating input directories...');
       if (!_isValidDirectoryInputs()) {
         return ExitCode.usage.code;
       }
@@ -122,50 +124,57 @@ class CoverageCommand extends Command<int> {
       if (!_isFlutterProject() || !_isValidWidgetbookProject()) {
         return ExitCode.usage.code;
       }
+      _timeLogger.stop('Finished validating input directories.');
       /* ---------------------- validity checks of the input ---------------------- */
 
       /* ------------- get file paths to be evaluated by the analyzer ------------- */
-      final widgetPaths = await _getFilePaths(widgetsTarget);
+      _timeLogger.start('Loading widget and widgetbook target file paths...');
+      final widgetPaths = _getFilePaths(widgetsTarget);
       final widgetbookPaths = widgetsTarget == widgetbookUsecasesTarget
           ? widgetPaths
-          : await _getFilePaths(widgetbookUsecasesTarget);
-      /* ------------- get file paths to be evaluated by the analyzer ------------- */
+          : _getFilePaths(widgetbookUsecasesTarget);
+      _timeLogger
+          .stop('Finished loading widget and widgetbook target file paths.');
+      /* ------------- get file paths to be evaluated by the analyzer ------------ */
 
-      //TODO:
-      // - test getting the widgets
-      // - test getting the widgetbook usecases
+      /* ------------------------ get widgets and usecases ------------------------ */
+      final futures = await Future.wait([
+        _getProjectWidgets(
+          PathData(
+            filePaths: widgetPaths,
+            projectRootPath: flutterProject,
+          ),
+          _logger,
+        ),
+        _getProjectWidgetbookUseCases(
+          PathData(
+            filePaths: widgetbookPaths,
+            projectRootPath: widgetbookProject,
+          ),
+          _logger,
+        ),
+      ]);
+
+      final widgets = futures.first;
+      final usecases = futures.last;
+      /* ------------------------ get widgets and usecases ------------------------ */
+
+      /* ---------------------- compare widgets and usecases ---------------------- */
+      //TODO TODAY:
       // - compare the widgets and widgetbook usecases
       // - output the widgets that are not covered by the widgetbook usecases
       // - Make a figma design of how the command works currently
 
-      /* ------------------------ get widgets and usecases ------------------------ */
-      final widgetVisitor = WidgetVisitor(_logger);
-      _resolveDartFiles(
-        widgetPaths,
-        analyzerContext: analyzerContext,
-      ).listen((result) {
-        if (result is ResolvedUnitResult) {
-          result.unit.visitChildren(widgetVisitor);
-        }
-      }).onDone(
-        () {
-          _logger.info(
-            'Found ${widgetVisitor.widgets.length} Widgets, here is the list: ${widgetVisitor.widgets}',
-          );
-        },
-      );
-
-      _resolveDartFiles(
-        widgetbookPaths,
-        analyzerContext: analyzerContext,
-      ).listen((data) {});
-      /* ------------------------ get widgets and usecases ------------------------ */
+      /* ---------------------- compare widgets and usecases ---------------------- */
 
       return ExitCode.success.code;
     } on CliException catch (e) {
-      _logger.err(
-        e.message.split('\n').map((line) => line.trim()).join('\n'),
-      );
+      //display message but remove any new lines
+      _logger.err(e.message
+          .replaceAll('\n', '')
+          .trim()
+          .replaceAll(RegExp(r'\s+'), ' '));
+
       return e.exitCode;
     } catch (e) {
       _logger.err(e.toString());
@@ -174,13 +183,25 @@ class CoverageCommand extends Command<int> {
   }
 
   /// gets all the absolute file paths in a directory path.
-  Future<List<String>> _getFilePaths(String directoryPath) async =>
-      Directory(directoryPath)
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((file) => file.path.endsWith('.dart'))
-          .map((file) => file.absolute.path)
-          .toList();
+  List<String> _getFilePaths(String directoryPath) {
+    final dartFiles = Directory(directoryPath)
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((file) => file.path.endsWith('.dart'))
+        .map((file) => file.absolute.path)
+        .toList();
+
+    if (dartFiles.isEmpty) {
+      throw CliException(
+        '''
+        Cannot find dart files in $directoryPath and 
+        therefore cannot be set as a widgets_target
+        ''',
+        ExitCode.ioError.code,
+      );
+    }
+    return dartFiles;
+  }
 
   /// Checks if the [flutterProject] directory is a Flutter project root directory.
   /// By checking for the presence of a pubspec.yaml file

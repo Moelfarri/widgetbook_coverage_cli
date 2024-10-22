@@ -1,4 +1,4 @@
-// ignore_for_file: unused_element, camel_case_types
+// ignore_for_file: unused_element, camel_case_types, depend_on_referenced_packages
 
 import 'package:flutter/material.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;

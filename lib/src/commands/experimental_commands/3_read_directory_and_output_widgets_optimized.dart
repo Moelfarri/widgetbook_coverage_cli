@@ -12,7 +12,6 @@ import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:widgetbook_coverage_cli/src/error_handling/cli_exception.dart';
 
-//TODO:
 // - make a new command that looks cleaner
 // - add widgetbook usecases part to it
 // - add the flag ideas
