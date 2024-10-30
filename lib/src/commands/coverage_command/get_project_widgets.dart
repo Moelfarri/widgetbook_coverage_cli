@@ -41,16 +41,22 @@ Future<List<String>> _getProjectWidgets(
 Future<void> _resolveFlutterProjectWidgets(InitialIsolateData data) async {
   final widgetVisitor = WidgetVisitor();
 
-  final analyzerContext = AnalysisContextCollection(
+  final analyzerContextCollection = AnalysisContextCollection(
     includedPaths: [
       Directory(data.projectRootPath).absolute.path,
     ],
+    //TODO: Look into excluding paths
+    //excludedPaths
   );
 
-  for (final filePath in data.filePaths) {
-    final context = analyzerContext.contextFor(filePath);
-    final result = await context.currentSession.getResolvedUnit(filePath);
+  final analyzerContext = analyzerContextCollection
+      .contextFor(Directory(data.projectRootPath).absolute.path);
 
+  final analyzedFilesPath = analyzerContext.contextRoot.analyzedFiles();
+
+  for (final filePath in analyzedFilesPath) {
+    final result =
+        await analyzerContext.currentSession.getResolvedUnit(filePath);
     if (result is! ResolvedUnitResult) continue;
 
     result.unit.visitChildren(widgetVisitor);
@@ -62,7 +68,7 @@ Future<void> _resolveFlutterProjectWidgets(InitialIsolateData data) async {
   }
 
   // signals the end of the stream
-  analyzerContext.dispose();
+  analyzerContextCollection.dispose();
   data.sendPort.send(
     SenderPortData(
       isFinished: true,

@@ -21,13 +21,16 @@ part 'time_logger.dart';
 part 'widget_visitor.dart';
 part 'widgetbook_use_case_visitor.dart';
 
+///TODO: bug can currently have a different flutter project and widgetbook project
+
 ////TODO: Feature ideas:
+/// POLISH:    - Allow user to exclude private widgets
+/// ESSENTIAL: - add strict flag to fail if there are any uncovered widgets
+/// - Allow options, flags to be set in a widgetbook_coverage yaml file
 /// - Allow user to ignore certain files, folders
 /// - Add a lcov coverage file
 /// - Allow user to specify the output file for the coverage report
-/// - Allow user to exclude private widgets
-/// - Add strict flag to fail if there are any uncovered widgets
-/// - cache the initial analyzer context for future runs (Persistent Analysis Sessions)
+/// - cache the initial analyzer context for future runs
 ///   - For example we know that ConsumerWidget, so we can cache that and not reanalyze it for subsequent runs
 ///   - So what we need to do is to cache the superclasses of unknown widget types ConsumerWidget etc and
 ///     reuse them for subsequent runs so we dont need to reload the analyzer for them. And maybe we only use the
